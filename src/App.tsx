@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   AppBar,
   Toolbar,
@@ -22,6 +22,11 @@ import {
   Divider,
   BottomNavigation,
   BottomNavigationAction,
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  useMediaQuery,
+  Switch,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import {
@@ -35,13 +40,51 @@ import {
   Close as CloseIcon,
   Dashboard as DashboardIcon,
   CalendarMonth as CalendarIcon,
+  Brightness4 as DarkModeIcon,
+  Brightness7 as LightModeIcon,
 } from '@mui/icons-material'
 import './App.css'
 
 function App() {
+  // Определяем системную тему
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)')
+  
+  // Состояние темы: 'light', 'dark', или 'auto'
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auto'>(() => {
+    const savedMode = localStorage.getItem('themeMode')
+    return (savedMode as 'light' | 'dark' | 'auto') || 'auto'
+  })
+
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [navigationValue, setNavigationValue] = useState(0)
+
+  // Сохраняем выбор темы в localStorage
+  useEffect(() => {
+    localStorage.setItem('themeMode', themeMode)
+  }, [themeMode])
+
+  // Определяем фактическую тему (с учетом auto режима)
+  const actualMode = themeMode === 'auto' 
+    ? (prefersDarkMode ? 'dark' : 'light')
+    : themeMode
+
+  // Создаем тему
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: actualMode,
+          primary: {
+            main: '#1976d2',
+          },
+          secondary: {
+            main: '#dc004e',
+          },
+        },
+      }),
+    [actualMode]
+  )
 
   const toggleDrawer = (open: boolean) => () => {
     setDrawerOpen(open)
@@ -49,6 +92,19 @@ function App() {
 
   const handleModalOpen = () => setModalOpen(true)
   const handleModalClose = () => setModalOpen(false)
+
+  const handleThemeToggle = () => {
+    setThemeMode((prev) => {
+      if (prev === 'auto') return 'light'
+      if (prev === 'light') return 'dark'
+      return 'auto'
+    })
+  }
+
+  const getThemeLabel = () => {
+    if (themeMode === 'auto') return `Авто (${actualMode === 'dark' ? 'Темная' : 'Светлая'})`
+    return themeMode === 'dark' ? 'Темная' : 'Светлая'
+  }
 
   // Стиль для модального окна (mobile-first)
   const modalStyle = {
@@ -65,9 +121,11 @@ function App() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* AppBar с Navigation */}
-      <AppBar position="sticky">
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        {/* AppBar с Navigation */}
+        <AppBar position="sticky">
         <Toolbar>
           <IconButton
             size="large"
@@ -150,6 +208,26 @@ function App() {
                 </ListItem>
               )
             })}
+          </List>
+          <Divider />
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                {actualMode === 'dark' ? <DarkModeIcon /> : <LightModeIcon />}
+              </ListItemIcon>
+              <ListItemText 
+                primary="Тема" 
+                secondary={getThemeLabel()}
+              />
+              <Switch
+                edge="end"
+                onChange={handleThemeToggle}
+                checked={themeMode !== 'auto'}
+                inputProps={{
+                  'aria-label': 'переключатель темы',
+                }}
+              />
+            </ListItem>
           </List>
         </Box>
       </Drawer>
@@ -330,7 +408,8 @@ function App() {
           <BottomNavigationAction label="Профиль" icon={<PersonIcon />} />
         </BottomNavigation>
       </Box>
-    </Box>
+      </Box>
+    </ThemeProvider>
   )
 }
 
