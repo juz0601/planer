@@ -17,7 +17,7 @@
  "vars":
  	{
  		"My_NAME": "Malik",
-		"FIREBASE_PROJECT_ID": "planer-97a3b",
+		"FIREBASE_PROJECT_ID": "planer-246d3",
 		"PUBLIC_JWK_CACHE_KEY": "firebase-public-jwk"
  	},
 	"d1_databases": [
