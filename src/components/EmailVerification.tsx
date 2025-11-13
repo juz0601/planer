@@ -11,10 +11,13 @@ import {
 } from '@mui/material';
 import { Email as EmailIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { applyActionCode } from 'firebase/auth';
+import { auth } from '../config/firebase';
 
 /**
  * Email verification page
  * Shown to users who haven't verified their email yet
+ * Also handles email verification from link (oobCode)
  */
 export const EmailVerification = () => {
   const { user, sendVerificationEmail, reloadUser, logout } = useAuth();
@@ -23,6 +26,48 @@ export const EmailVerification = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [cooldown, setCooldown] = useState(0);
+
+  // Check for email verification code in URL (oobCode)
+  useEffect(() => {
+    const handleEmailVerificationFromLink = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const mode = urlParams.get('mode');
+      const oobCode = urlParams.get('oobCode');
+
+      if (mode === 'verifyEmail' && oobCode) {
+        try {
+          setChecking(true);
+          
+          // Apply the verification code
+          await applyActionCode(auth, oobCode);
+          
+          // Reload user to update emailVerified status
+          await reloadUser();
+          
+          // Clear URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          setMessage('Email успешно подтвержден! Перенаправление...');
+          
+          // The ProtectedRoute will automatically redirect to app
+        } catch (err: any) {
+          console.error('Error verifying email from link:', err);
+          
+          if (err.code === 'auth/invalid-action-code') {
+            setError('Ссылка подтверждения недействительна или уже использована.');
+          } else if (err.code === 'auth/expired-action-code') {
+            setError('Ссылка подтверждения истекла. Запросите новое письмо.');
+          } else {
+            setError('Ошибка подтверждения email. Попробуйте еще раз.');
+          }
+        } finally {
+          setChecking(false);
+        }
+      }
+    };
+
+    handleEmailVerificationFromLink();
+  }, [reloadUser]);
 
   // Cooldown timer
   useEffect(() => {

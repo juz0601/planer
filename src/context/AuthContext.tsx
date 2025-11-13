@@ -67,8 +67,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await updateProfile(result.user, { displayName });
     }
     
-    // Send email verification
-    await sendEmailVerification(result.user);
+    // Configure action code settings for email verification
+    const actionCodeSettings = {
+      url: 'https://planer.m-k-mendykhan.workers.dev/',
+      handleCodeInApp: true,
+    };
+    
+    // Send email verification with redirect URL
+    await sendEmailVerification(result.user, actionCodeSettings);
     
     // Get and store token (but user won't be able to access app until verified)
     const token = await result.user.getIdToken();
@@ -107,7 +113,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       throw new Error('No user logged in');
     }
     
-    await sendEmailVerification(user);
+    // Configure action code settings for email verification
+    const actionCodeSettings = {
+      url: 'https://planer.m-k-mendykhan.workers.dev/',
+      handleCodeInApp: true,
+    };
+    
+    await sendEmailVerification(user, actionCodeSettings);
   };
 
   const reloadUser = async () => {
