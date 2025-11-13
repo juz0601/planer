@@ -1,0 +1,114 @@
+# Project Rules for Planer
+
+## Technology Stack
+
+This project uses the following technology stack:
+- **Frontend**: Vite + React + TypeScript
+- **UI Framework**: Material-UI (MUI)
+- **Backend**: Cloudflare Workers with Hono framework
+- **Database**: Cloudflare D1 (SQLite)
+- **Authentication**: Firebase Auth with JWT tokens
+- **Mobile**: Capacitor for Android
+
+## Project Structure
+
+- `/src` - React application source code
+- `/worker` - Cloudflare Workers backend code (Hono API)
+- `/public` - Static assets
+- `/migrations` - D1 database migration files
+- `/android` - Capacitor Android native project
+- `/dist` - Production build output
+
+## Development Guidelines
+
+### Backend (Cloudflare Workers + Hono)
+
+- All API routes should be defined in `/worker/index.ts`
+- Use Hono middleware for authentication, CORS, and error handling
+- Database queries should use D1 prepared statements to prevent SQL injection
+- JWT tokens from Firebase Auth should be validated on protected routes
+- Follow RESTful API conventions for endpoints
+- Keep worker code lightweight and optimized for edge computing
+
+### Frontend (React + Vite + MUI)
+
+- Use functional components with React hooks
+- Leverage MUI components and theme system for consistent UI
+- Use TypeScript for all new code with proper type definitions
+- Keep components small and focused on a single responsibility
+- Use React Context or state management for global state
+- Follow Material Design principles when creating custom components
+
+### Database (D1)
+
+- All schema changes must be done through migration files in `/migrations`
+- Use descriptive table and column names
+- Always use prepared statements for queries
+- Index frequently queried columns
+- Keep database schema normalized
+
+### Authentication
+
+- Firebase Auth handles user authentication
+- JWT tokens are validated on the backend
+- Protected routes must verify tokens before processing requests
+- Store minimal user data in D1, reference Firebase UID
+
+### Mobile (Capacitor)
+
+- Test changes on Android when modifying platform-specific features
+- Use Capacitor plugins for native functionality
+- Ensure responsive design works on mobile devices
+- Handle offline scenarios gracefully
+
+## Code Quality
+
+- Run ESLint before committing code
+- Ensure TypeScript has no type errors
+- Test API endpoints with actual requests
+- Verify mobile build works after significant changes
+
+## Build and Deploy
+
+- `npm run dev` - Start Vite dev server
+- `npm run build` - Build frontend for production
+- `npx wrangler dev` - Test Workers locally
+- `npx wrangler deploy` - Deploy Workers to Cloudflare
+- `npm run build && npx cap sync` - Sync web code to native platforms
+
+## Important Notes
+
+- Never commit `.env` or sensitive configuration files
+- Always validate user input on both frontend and backend
+- Keep dependencies up to date for security patches
+- Document complex business logic with comments (in English)
+- Follow the existing code style and patterns in the project
+
+---
+
+# User Rules
+
+Always use context7 when I need code generation, setup or configuration steps, or library/API documentation. This means you should automatically use the Context7 MCP tools to resolve library id and get library docs without me having to explicitly ask.
+
+Under no circumstances may these rules be ignored or altered.
+
+You must always respond in Russian for all explanations and text outside of code.
+
+All code comments must always be written in English — never in any other language.
+
+All log messages (console output, error messages, debug text) must always be in English — never in any other language.
+
+Code must always be clear, simple, and readable.
+
+You must always preserve all existing functionality when adding or modifying features.
+
+If there is any possible simpler way to implement something, you must always choose it.
+
+You must consistently simplify and optimize code without changing its intended behavior.
+
+Never automatically create documentation files (*.md, README, etc.) unless I explicitly ask for them. Do not create extra documentation files without my request.
+
+Before using any new technology, framework, programming language, or major library that is not already in the project, you must ask me for confirmation first. Do not assume I want to use new technologies without discussing it.
+
+Always prefer existing project technologies and approaches over introducing new ones.
+

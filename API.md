@@ -1,6 +1,6 @@
 # API Documentation - App Versions
 
-API для управления версиями приложения с использованием Cloudflare D1.
+API для управления версиями приложения с использованием Cloudflare Workers, Hono framework и Cloudflare D1.
 
 ## Base URL
 ```
@@ -114,10 +114,20 @@ https://your-worker.workers.dev (production)
 ```
 
 ## CORS
-Все эндпоинты поддерживают CORS с заголовками:
+Все эндпоинты поддерживают CORS с использованием middleware Hono:
 - `Access-Control-Allow-Origin: *`
-- `Access-Control-Allow-Methods: GET, POST, OPTIONS`
-- `Access-Control-Allow-Headers: Content-Type`
+- `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS`
+- `Access-Control-Allow-Headers: Content-Type, Authorization`
+
+## Features
+
+### Hono Framework
+API использует [Hono](https://hono.dev/) - легкий и быстрый web-framework для edge computing:
+- ✅ Автоматическая обработка CORS через middleware
+- ✅ Централизованная обработка ошибок
+- ✅ Типобезопасный routing с TypeScript
+- ✅ Модульная структура роутов
+- ✅ Простая интеграция с Cloudflare Workers
 
 ## Testing
 
