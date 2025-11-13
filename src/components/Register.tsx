@@ -34,9 +34,15 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [registrationComplete, setRegistrationComplete] = useState(() => {
+    // Check if registration was just completed
+    return localStorage.getItem('registrationComplete') === 'true';
+  });
 
   const { signUp } = useAuth();
+
+  // Get registered email from localStorage if registration was completed
+  const registeredEmail = localStorage.getItem('registeredEmail') || email;
 
   // Password strength indicator
   const getPasswordStrength = (pass: string): number => {
@@ -103,6 +109,13 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
+  const handleGoToLogin = () => {
+    // Clear registration flags
+    localStorage.removeItem('registrationComplete');
+    localStorage.removeItem('registeredEmail');
+    onSwitchToLogin();
+  };
+
   // Show success message after registration
   if (registrationComplete) {
     return (
@@ -123,7 +136,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                 Check Your Email
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                We've sent a verification link to <strong>{email}</strong>
+                We've sent a verification link to <strong>{registeredEmail}</strong>
               </Typography>
               <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
                 Please click the verification link in your email to activate your account. 
@@ -133,7 +146,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                 fullWidth
                 variant="contained"
                 size="large"
-                onClick={onSwitchToLogin}
+                onClick={handleGoToLogin}
                 sx={{ py: 1.5 }}
               >
                 Go to Sign In

@@ -69,6 +69,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Send verification email immediately after signup
       await sendVerificationEmail();
       
+      // Save registration info in localStorage before logout
+      localStorage.setItem('registrationComplete', 'true');
+      localStorage.setItem('registeredEmail', email);
+      
       // Sign out user until they verify their email
       await firebaseSignOut(auth);
     } catch (error: any) {
