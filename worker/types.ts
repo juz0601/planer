@@ -49,13 +49,14 @@ export interface Env {
 }
 
 // Firebase user token interface (from JWT claims)
+// This matches the structure returned by getFirebaseToken()
 export interface FirebaseUser {
   uid: string;
   email?: string;
-  email_verified: boolean;
-  auth_time: number;
-  exp: number;
-  iat: number;
+  email_verified?: boolean;
+  auth_time?: number;
+  exp?: number;
+  iat?: number;
   [key: string]: any;
 }
 

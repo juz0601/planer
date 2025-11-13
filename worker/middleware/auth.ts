@@ -30,7 +30,7 @@ export const authMiddleware: MiddlewareHandler<{ Bindings: Env; Variables: Varia
       }
       
       // Check if email is verified
-      if (!token.email_verified) {
+      if (!token.email_verified || token.email_verified !== true) {
         throw new Error('Email not verified');
       }
       
