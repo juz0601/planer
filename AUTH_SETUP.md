@@ -8,13 +8,14 @@
 
 ✅ Регистрация пользователей с email/password  
 ✅ Вход в систему  
+✅ Сброс пароля через email  
 ✅ Обязательная проверка email перед доступом к приложению  
 ✅ Автоматическая отправка письма с подтверждением после регистрации  
 ✅ Перенаправление на приложение после подтверждения email  
 ✅ JWT токены в localStorage  
 ✅ Защита API endpoints на backend  
 ✅ Автоматическая проверка токенов с помощью middleware  
-✅ Красивый UI для логина/регистрации с Material-UI  
+✅ Красивый UI для логина/регистрации/сброса пароля с Material-UI  
 
 ## Архитектура
 
@@ -31,6 +32,7 @@
 - **`src/contexts/AuthContext.tsx`** - Context для управления состоянием авторизации
 - **`src/components/Login.tsx`** - Компонент входа
 - **`src/components/Register.tsx`** - Компонент регистрации
+- **`src/components/PasswordReset.tsx`** - Компонент сброса пароля
 - **`src/App.tsx`** - Главный компонент с защитой маршрутов
 
 ## Настройка
@@ -229,7 +231,19 @@ publicApi.get('/data', async (c) => {
 5. Если подтвержден - пользователь получает доступ к приложению
 6. JWT токен кэшируется в localStorage
 
-### 4. Доступ к защищенным API
+### 4. Сброс пароля
+
+1. Пользователь на странице логина нажимает "Forgot password?"
+2. Открывается форма сброса пароля
+3. Пользователь вводит email
+4. Frontend вызывает `resetPassword(email)`
+5. Firebase отправляет письмо со ссылкой для сброса
+6. Пользователь кликает на ссылку в письме
+7. Открывается страница Firebase для установки нового пароля
+8. Пользователь устанавливает новый пароль
+9. Пользователь возвращается в приложение и входит с новым паролем
+
+### 5. Доступ к защищенным API
 
 1. Frontend получает токен через `getIdToken()`
 2. Токен отправляется в заголовке `Authorization: Bearer <token>`
@@ -302,6 +316,16 @@ curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
 3. Используйте кнопку "Resend Verification Email"
 4. Проверьте квоты в Firebase Console
 
+### Письмо для сброса пароля не приходит
+
+**Проблема**: После запроса сброса пароля письмо не приходит  
+**Решение**:
+1. Проверьте папку "Спам"
+2. Убедитесь, что email правильный (используется существующий аккаунт)
+3. Попробуйте отправить запрос еще раз
+4. Проверьте шаблоны писем в Firebase Console → Authentication → Templates
+5. Убедитесь, что в Firebase Console включен Email/Password провайдер
+
 ### KV namespace ошибка при деплое
 
 **Проблема**: Ошибка связанная с `PUBLIC_JWK_CACHE_KV`  
@@ -312,18 +336,27 @@ curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
 
 ## Дополнительные возможности
 
-### Сброс пароля
+### Сброс пароля ✅
 
-Можно добавить функционал сброса пароля:
+Функционал сброса пароля полностью реализован:
+
+- Компонент `PasswordReset` с красивым UI
+- Ссылка "Forgot password?" на странице логина
+- Автоматическая отправка письма со ссылкой для сброса
+- Перенаправление после установки нового пароля
+
+Использование:
 
 ```typescript
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from './config/firebase';
+import { useAuth } from './contexts/AuthContext';
 
-async function resetPassword(email: string) {
-  await sendPasswordResetEmail(auth, email, {
-    url: 'https://planer.m-k-mendykhan.workers.dev/',
-  });
+function ResetPasswordComponent() {
+  const { resetPassword } = useAuth();
+  
+  const handleReset = async (email: string) => {
+    await resetPassword(email);
+    // Пользователь получит письмо со ссылкой
+  };
 }
 ```
 
