@@ -25,10 +25,14 @@
 		"@mui/icons-material": "^7.3.5",
 		"@mui/material": "^7.3.5",
 		"@mui/system": "^7.3.5",
+		"@mui/x-date-pickers": "^8.19.0",
+		"date-fns": "^4.1.0",
 		"firebase": "^12.5.0",
 		"hono": "^4.10.5",
+		"nanoid": "^5.1.6",
 		"react": "^19.1.1",
-		"react-dom": "^19.1.1"
+		"react-dom": "^19.1.1",
+		"react-router-dom": "^7.9.6"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.13.11",

@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env, Variables } from './types';
 import versions from './routes/versions';
+import tasks from './routes/tasks';
+import tags from './routes/tags';
 import { logger, requestId, authMiddleware } from './middleware';
 
 // Create Hono app with typed environment
@@ -67,6 +69,10 @@ protectedApi.get('/profile', async (c) => {
     },
   });
 });
+
+// Register protected routes
+protectedApi.route('/tasks', tasks);
+protectedApi.route('/tags', tags);
 
 // Mount all API routes
 api.route('/', publicApi);

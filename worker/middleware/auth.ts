@@ -14,6 +14,7 @@ const firebaseConfig: VerifyFirebaseAuthConfig = {
 /**
  * Middleware to verify Firebase authentication
  * Checks if user has valid JWT token and verified email
+ * Creates user in database if not exists
  */
 export const authMiddleware: MiddlewareHandler<{ Bindings: Env; Variables: Variables }> = async (c, next) => {
   // Apply Firebase auth verification
@@ -33,6 +34,9 @@ export const authMiddleware: MiddlewareHandler<{ Bindings: Env; Variables: Varia
       if (!token.email_verified || token.email_verified !== true) {
         throw new Error('Email not verified');
       }
+      
+      // Ensure user exists in database
+      await ensureUserExists(c, token);
       
       // Set user info in context for downstream handlers
       c.set('user', token);
@@ -63,6 +67,46 @@ export const authMiddleware: MiddlewareHandler<{ Bindings: Env; Variables: Varia
     );
   }
 };
+
+/**
+ * Ensures user exists in the database, creates if not
+ */
+async function ensureUserExists(c: any, token: any): Promise<void> {
+  const db = c.env.DB;
+  
+  if (!db) {
+    console.error('Database not available');
+    return;
+  }
+  
+  try {
+    // Check if user exists
+    const existingUser = await db
+      .prepare('SELECT id FROM users WHERE id = ?')
+      .bind(token.uid)
+      .first();
+    
+    if (!existingUser) {
+      // Create user
+      await db
+        .prepare(`
+          INSERT INTO users (id, email, display_name, created_at, updated_at)
+          VALUES (?, ?, ?, datetime('now'), datetime('now'))
+        `)
+        .bind(
+          token.uid,
+          token.email || '',
+          token.name || token.email?.split('@')[0] || ''
+        )
+        .run();
+      
+      console.log('Created new user:', token.uid);
+    }
+  } catch (error) {
+    console.error('Error ensuring user exists:', error);
+    // Don't throw - allow request to continue even if user creation fails
+  }
+}
 
 /**
  * Optional middleware that allows both authenticated and unauthenticated requests

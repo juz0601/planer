@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -9,23 +9,73 @@ import {
   Grid,
   Paper,
   Chip,
+  Badge,
+  CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import {
   ChevronLeft,
   ChevronRight,
   Today,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { getTasks } from '../utils/api';
+import type { Task } from '../types';
+
+interface DayTasks {
+  [day: number]: Task[];
+}
 
 export const Calendar: React.FC = () => {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [monthTasks, setMonthTasks] = useState<DayTasks>({});
 
   const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
   ];
 
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+  useEffect(() => {
+    loadMonthTasks();
+  }, [currentDate]);
+
+  const loadMonthTasks = async () => {
+    setLoading(true);
+    try {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      const tasks = await getTasks({
+        start_date: firstDay.toISOString().split('T')[0],
+        end_date: lastDay.toISOString().split('T')[0],
+        include_archived: false,
+      });
+
+      // Group tasks by day
+      const tasksByDay: DayTasks = {};
+      tasks.forEach((task) => {
+        const taskDate = new Date(task.start_datetime);
+        const day = taskDate.getDate();
+        if (!tasksByDay[day]) {
+          tasksByDay[day] = [];
+        }
+        tasksByDay[day].push(task);
+      });
+
+      setMonthTasks(tasksByDay);
+    } catch (error) {
+      console.error('Error loading month tasks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -56,7 +106,8 @@ export const Calendar: React.FC = () => {
 
   const handleDateClick = (day: number) => {
     const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    setSelectedDate(newDate);
+    const dateStr = newDate.toISOString().split('T')[0];
+    navigate(`/tasks?date=${dateStr}`);
   };
 
   const isToday = (day: number) => {
@@ -77,6 +128,40 @@ export const Calendar: React.FC = () => {
     );
   };
 
+  const getTaskCountForDay = (day: number): number => {
+    return monthTasks[day]?.length || 0;
+  };
+
+  const getPriorityDotsForDay = (day: number): JSX.Element[] => {
+    const tasks = monthTasks[day] || [];
+    const priorities = new Set(tasks.map(t => t.priority));
+    
+    const priorityColors: Record<string, string> = {
+      critical: '#d32f2f',
+      high: '#f57c00',
+      medium: '#1976d2',
+      low: '#757575',
+    };
+
+    return Array.from(priorities).slice(0, 3).map((priority, index) => (
+      <Box
+        key={`${day}-${priority}-${index}`}
+        sx={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          bgcolor: priorityColors[priority] || '#757575',
+        }}
+      />
+    ));
+  };
+
+  const getTooltipContent = (day: number): string => {
+    const tasks = monthTasks[day] || [];
+    if (tasks.length === 0) return 'Нет задач';
+    return `${tasks.length} ${tasks.length === 1 ? 'задача' : tasks.length < 5 ? 'задачи' : 'задач'}`;
+  };
+
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
@@ -95,34 +180,67 @@ export const Calendar: React.FC = () => {
     for (let day = 1; day <= daysInMonth; day++) {
       const today = isToday(day);
       const selected = isSelected(day);
+      const taskCount = getTaskCountForDay(day);
 
       days.push(
         <Grid size={{ xs: 12 / 7 }} key={day}>
-          <Paper
-            elevation={selected ? 8 : today ? 2 : 0}
-            sx={{
-              aspectRatio: '1',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              border: selected ? '3px solid' : today ? '2px solid' : '1px solid',
-              borderColor: selected ? 'error.main' : today ? 'primary.main' : 'divider',
-              bgcolor: selected ? 'error.light' : today ? 'primary.light' : 'background.paper',
-              color: selected ? 'error.contrastText' : today ? 'primary.contrastText' : 'text.primary',
-              transition: 'all 0.2s',
-              '&:hover': {
-                bgcolor: selected ? 'error.main' : today ? 'primary.main' : 'action.hover',
-                transform: 'scale(1.05)',
-                boxShadow: 3,
-              },
-            }}
-            onClick={() => handleDateClick(day)}
-          >
-            <Typography variant="body1" fontWeight={selected || today ? 'bold' : 'normal'}>
-              {day}
-            </Typography>
-          </Paper>
+          <Tooltip title={getTooltipContent(day)} arrow>
+            <Paper
+              elevation={selected ? 8 : today ? 2 : 0}
+              sx={{
+                aspectRatio: '1',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                border: selected ? '3px solid' : today ? '2px solid' : '1px solid',
+                borderColor: selected ? 'error.main' : today ? 'primary.main' : 'divider',
+                bgcolor: selected ? 'error.light' : today ? 'primary.light' : 'background.paper',
+                color: selected ? 'error.contrastText' : today ? 'primary.contrastText' : 'text.primary',
+                transition: 'all 0.2s',
+                position: 'relative',
+                '&:hover': {
+                  bgcolor: selected ? 'error.main' : today ? 'primary.main' : 'action.hover',
+                  transform: 'scale(1.05)',
+                  boxShadow: 3,
+                },
+              }}
+              onClick={() => handleDateClick(day)}
+            >
+              <Typography variant="body1" fontWeight={selected || today ? 'bold' : 'normal'}>
+                {day}
+              </Typography>
+              
+              {taskCount > 0 && (
+                <Box 
+                  display="flex" 
+                  gap={0.5} 
+                  mt={0.5}
+                  sx={{ 
+                    position: 'absolute', 
+                    bottom: 4,
+                  }}
+                >
+                  {getPriorityDotsForDay(day)}
+                </Box>
+              )}
+              
+              {taskCount > 3 && (
+                <Chip
+                  label={taskCount}
+                  size="small"
+                  sx={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    height: 18,
+                    fontSize: '0.7rem',
+                  }}
+                />
+              )}
+            </Paper>
+          </Tooltip>
         </Grid>
       );
     }
@@ -147,12 +265,18 @@ export const Calendar: React.FC = () => {
           {/* Header */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h4" fontWeight="600">
-              Calendar
+              Календарь
             </Typography>
             <IconButton color="primary" onClick={handleToday}>
               <Today />
             </IconButton>
           </Box>
+
+          {loading && (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          )}
 
           {/* Selected Date Display */}
           {selectedDate && (
@@ -225,20 +349,18 @@ export const Calendar: React.FC = () => {
                   borderRadius: 1,
                 }}
               />
-              <Typography variant="body2">Today</Typography>
+              <Typography variant="body2">Сегодня</Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box
-                sx={{
-                  width: 30,
-                  height: 30,
-                  border: '3px solid',
-                  borderColor: 'error.main',
-                  bgcolor: 'error.light',
-                  borderRadius: 1,
-                }}
-              />
-              <Typography variant="body2">Selected Date</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2">Приоритеты:</Typography>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#d32f2f', mx: 0.5 }} />
+              <Typography variant="caption">Критический</Typography>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f57c00', mx: 0.5 }} />
+              <Typography variant="caption">Высокий</Typography>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#1976d2', mx: 0.5 }} />
+              <Typography variant="caption">Средний</Typography>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#757575', mx: 0.5 }} />
+              <Typography variant="caption">Низкий</Typography>
             </Box>
           </Box>
         </CardContent>
