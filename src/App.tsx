@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   AppBar,
   Toolbar,
@@ -7,7 +7,6 @@ import {
   Box,
   Card,
   CardContent,
-  CardActions,
   Button,
   Drawer,
   List,
@@ -15,7 +14,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Modal,
   Avatar,
   Badge,
   Container,
@@ -29,7 +27,6 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material'
-import Grid from '@mui/material/Grid'
 import {
   Menu as MenuIcon,
   Home as HomeIcon,
@@ -38,7 +35,6 @@ import {
   Settings as SettingsIcon,
   Mail as MailIcon,
   Notifications as NotificationsIcon,
-  Close as CloseIcon,
   Dashboard as DashboardIcon,
   CalendarMonth as CalendarIcon,
   Brightness4 as DarkModeIcon,
@@ -71,7 +67,6 @@ function App() {
   })
 
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
   const [navigationValue, setNavigationValue] = useState(0)
   const [verificationSent, setVerificationSent] = useState(false)
 
@@ -108,9 +103,6 @@ function App() {
     setDrawerOpen(open)
   }
 
-  const handleModalOpen = () => setModalOpen(true)
-  const handleModalClose = () => setModalOpen(false)
-
   const handleThemeToggle = () => {
     setThemeMode((prev) => prev === 'light' ? 'dark' : 'light')
   }
@@ -136,20 +128,6 @@ function App() {
       console.error('Error sending verification:', error);
     }
   };
-
-  // Стиль для модального окна (mobile-first)
-  const modalStyle = {
-    position: 'absolute' as const,
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '90%',
-    maxWidth: 400,
-    bgcolor: 'background.paper',
-    boxShadow: 24,
-    borderRadius: 2,
-    p: 4,
-  }
 
   // Show loading spinner while checking auth state
   if (authLoading) {
@@ -400,164 +378,11 @@ function App() {
         ) : currentView === 'calendar' ? (
           <CalendarView />
         ) : (
-          <>
-            <Typography variant="h4" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
-              Welcome to Planer!
-            </Typography>
-
-            <Alert severity="success" sx={{ mb: 3 }}>
-              Your email is verified! You now have full access to the application.
-            </Alert>
-
-        <Grid container spacing={3}>
-          {/* Card Examples */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Card elevation={3}>
-              <CardContent>
-                <Typography variant="h5" component="div" gutterBottom>
-                  Card 1
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Это пример карточки с возвышением. Отлично работает на мобильных устройствах.
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button size="small" variant="contained">
-                  Действие
-                </Button>
-                <Button size="small">Подробнее</Button>
-              </CardActions>
-            </Card>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Card elevation={3}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    <FavoriteIcon />
-                  </Avatar>
-                  <Typography variant="h5" component="div">
-                    Card 2
-                  </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  Карточка с иконкой и аватаром. Mobile-first дизайн адаптируется под любой экран.
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button size="small" color="secondary">
-                  Избранное
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Card elevation={3}>
-              <CardContent>
-                <Typography variant="h5" component="div" gutterBottom>
-                  Modal Demo
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Нажмите кнопку ниже, чтобы открыть модальное окно.
-                </Typography>
-                <Button variant="outlined" fullWidth onClick={handleModalOpen}>
-                  Открыть Modal
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Additional Cards */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Card elevation={3} sx={{ bgcolor: 'primary.main', color: 'white' }}>
-              <CardContent>
-                <Typography variant="h5" component="div" gutterBottom>
-                  Цветная Card
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Карточка с кастомным фоном для акцента на важной информации.
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button size="small" sx={{ color: 'white' }}>
-                  Узнать больше
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Card elevation={3}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="h5" component="div">
-                    Drawer Demo
-                  </Typography>
-                  <IconButton size="small" onClick={toggleDrawer(true)}>
-                    <MenuIcon />
-                  </IconButton>
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  Нажмите на иконку меню или используйте кнопку в AppBar для открытия Drawer.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Card elevation={3}>
-              <CardContent>
-                <Typography variant="h5" component="div" gutterBottom>
-                  Avatar & Badge
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2 }}>
-                  <Badge badgeContent={4} color="primary">
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>A</Avatar>
-                  </Badge>
-                  <Badge badgeContent={10} color="secondary">
-                    <Avatar sx={{ bgcolor: 'secondary.main' }}>B</Avatar>
-                  </Badge>
-                  <Badge badgeContent={99} color="error">
-                    <Avatar sx={{ bgcolor: 'error.main' }}>C</Avatar>
-                  </Badge>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-          </>
+          <Typography variant="h4" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+            Welcome to Planer!
+          </Typography>
         )}
       </Container>
-
-      {/* Modal */}
-      <Modal
-        open={modalOpen}
-        onClose={handleModalClose}
-        aria-labelledby="modal-title"
-        aria-describedby="modal-description"
-      >
-        <Box sx={modalStyle}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography id="modal-title" variant="h5" component="h2">
-              Модальное окно
-            </Typography>
-            <IconButton onClick={handleModalClose} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-          <Typography id="modal-description" sx={{ mb: 3 }}>
-            Это модальное окно адаптировано для мобильных устройств. Оно занимает 90% ширины экрана с максимумом 400px.
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-            <Button onClick={handleModalClose}>Отмена</Button>
-            <Button variant="contained" onClick={handleModalClose}>
-              ОК
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
 
       {/* Bottom Navigation для mobile */}
       <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
@@ -568,7 +393,6 @@ function App() {
             setNavigationValue(newValue)
             // Switch view based on navigation
             if (newValue === 0) setCurrentView('main')
-            if (newValue === 1) setCurrentView('calendar')
             if (newValue === 2) setCurrentView('profile')
           }}
         >

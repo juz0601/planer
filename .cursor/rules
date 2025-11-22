@@ -83,6 +83,7 @@ This project uses the following technology stack:
 - Keep dependencies up to date for security patches
 - Document complex business logic with comments (in English)
 - Follow the existing code style and patterns in the project
+- Application have only Russian translation
 
 ---
 

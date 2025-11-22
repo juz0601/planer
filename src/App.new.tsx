@@ -25,7 +25,6 @@ import {
   ThemeProvider,
   createTheme,
   CssBaseline,
-  useMediaQuery,
   Switch,
   CircularProgress,
   Alert,
@@ -57,13 +56,15 @@ function App() {
   const { user, loading: authLoading, signOut, sendVerificationEmail, getIdToken } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'reset'>('login');
 
-  // Определяем системную тему
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)')
-  
-  // Состояние темы: 'light', 'dark', или 'auto'
-  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auto'>(() => {
+  // Состояние темы: 'light' или 'dark'
+  // При первом входе определяем системную тему
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
     const savedMode = localStorage.getItem('themeMode')
-    return (savedMode as 'light' | 'dark' | 'auto') || 'auto'
+    if (savedMode === 'light' || savedMode === 'dark') {
+      return savedMode
+    }
+    // Первый вход - определяем системную тему
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
 
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -83,17 +84,12 @@ function App() {
     }
   }, [user, getIdToken]);
 
-  // Определяем фактическую тему (с учетом auto режима)
-  const actualMode = themeMode === 'auto' 
-    ? (prefersDarkMode ? 'dark' : 'light')
-    : themeMode
-
   // Создаем тему
   const theme = useMemo(
     () =>
       createTheme({
         palette: {
-          mode: actualMode,
+          mode: themeMode,
           primary: {
             main: '#1976d2',
           },
@@ -102,7 +98,7 @@ function App() {
           },
         },
       }),
-    [actualMode]
+    [themeMode]
   )
 
   const toggleDrawer = (open: boolean) => () => {
@@ -113,15 +109,10 @@ function App() {
   const handleModalClose = () => setModalOpen(false)
 
   const handleThemeToggle = () => {
-    setThemeMode((prev) => {
-      if (prev === 'auto') return 'light'
-      if (prev === 'light') return 'dark'
-      return 'auto'
-    })
+    setThemeMode((prev) => prev === 'light' ? 'dark' : 'light')
   }
 
   const getThemeLabel = () => {
-    if (themeMode === 'auto') return `Авто (${actualMode === 'dark' ? 'Темная' : 'Светлая'})`
     return themeMode === 'dark' ? 'Темная' : 'Светлая'
   }
 
@@ -351,7 +342,7 @@ function App() {
           <List>
             <ListItem>
               <ListItemIcon>
-                {actualMode === 'dark' ? <DarkModeIcon /> : <LightModeIcon />}
+                {themeMode === 'dark' ? <DarkModeIcon /> : <LightModeIcon />}
               </ListItemIcon>
               <ListItemText 
                 primary="Тема" 
@@ -360,7 +351,7 @@ function App() {
               <Switch
                 edge="end"
                 onChange={handleThemeToggle}
-                checked={themeMode !== 'auto'}
+                checked={themeMode === 'dark'}
                 inputProps={{
                   'aria-label': 'переключатель темы',
                 }}
