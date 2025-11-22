@@ -52,11 +52,12 @@ import { Login } from './components/Login'
 import { Register } from './components/Register'
 import { PasswordReset } from './components/PasswordReset'
 import { Profile } from './components/Profile'
+import { Calendar as CalendarView } from './components/Calendar'
 
 function App() {
   const { user, loading: authLoading, signOut, sendVerificationEmail, getIdToken } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'reset'>('login');
-  const [currentView, setCurrentView] = useState<'main' | 'profile'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'profile' | 'calendar'>('main');
 
   // Состояние темы: 'light' или 'dark'
   // При первом входе определяем системную тему
@@ -334,10 +335,14 @@ function App() {
                 if (index === 0) {
                   setCurrentView('main')
                   setNavigationValue(0)
+                } else if (index === 2) {
+                  setCurrentView('calendar')
+                  setNavigationValue(1)
                 } else if (index === 3) {
                   setCurrentView('profile')
                   setNavigationValue(2)
                 }
+                setDrawerOpen(false)
               }
               return (
                 <ListItem key={text} disablePadding>
@@ -392,6 +397,8 @@ function App() {
       >
         {currentView === 'profile' ? (
           <Profile />
+        ) : currentView === 'calendar' ? (
+          <CalendarView />
         ) : (
           <>
             <Typography variant="h4" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
@@ -561,11 +568,12 @@ function App() {
             setNavigationValue(newValue)
             // Switch view based on navigation
             if (newValue === 0) setCurrentView('main')
+            if (newValue === 1) setCurrentView('calendar')
             if (newValue === 2) setCurrentView('profile')
           }}
         >
           <BottomNavigationAction label="Главная" icon={<HomeIcon />} />
-          <BottomNavigationAction label="Избранное" icon={<FavoriteIcon />} />
+          <BottomNavigationAction label="Календарь" icon={<CalendarIcon />} />
           <BottomNavigationAction label="Профиль" icon={<PersonIcon />} />
         </BottomNavigation>
       </Box>
