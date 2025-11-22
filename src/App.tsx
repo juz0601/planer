@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
 import {
   AppBar,
   Toolbar,
@@ -573,7 +573,7 @@ function App() {
           }}
         >
           <BottomNavigationAction label="Главная" icon={<HomeIcon />} />
-          <BottomNavigationAction label="Календарь" icon={<CalendarIcon />} />
+          <BottomNavigationAction label="Избранное" icon={<FavoriteIcon />} />
           <BottomNavigationAction label="Профиль" icon={<PersonIcon />} />
         </BottomNavigation>
       </Box>
