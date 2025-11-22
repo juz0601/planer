@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   type User,
   signInWithEmailAndPassword,
@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
+  updateProfile,
   type ActionCodeSettings,
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
@@ -20,6 +21,7 @@ interface AuthContextType {
   sendVerificationEmail: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   resetPassword: (email: string) => Promise<void>;
+  updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,6 +130,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateUserProfile = async (displayName: string, photoURL?: string): Promise<void> => {
+    if (!auth.currentUser) {
+      throw new Error('No user is currently signed in');
+    }
+
+    try {
+      const updates: { displayName: string; photoURL?: string } = { displayName };
+      if (photoURL) {
+        updates.photoURL = photoURL;
+      }
+
+      await updateProfile(auth.currentUser, updates);
+      
+      // Force refresh the user object to reflect changes
+      await auth.currentUser.reload();
+      setUser({ ...auth.currentUser });
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  };
+
   const getIdToken = async (): Promise<string | null> => {
     if (!user) return null;
     
@@ -153,6 +177,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     sendVerificationEmail,
     resetPassword,
+    updateUserProfile,
     getIdToken,
   };
 

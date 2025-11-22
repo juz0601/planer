@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -31,7 +31,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 
 export const Profile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUserProfile } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -49,6 +49,14 @@ export const Profile: React.FC = () => {
   const [linkedin, setLinkedin] = useState('');
   const [github, setGithub] = useState('');
   const [facebook, setFacebook] = useState('');
+
+  // Sync with user changes
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.displayName || '');
+      setPreviewURL(user.photoURL || '');
+    }
+  }, [user]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -88,9 +96,18 @@ export const Profile: React.FC = () => {
     setSuccess('');
 
     try {
-      // TODO: Implement actual profile update with Firebase
-      // For now, just simulate saving
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Validate display name
+      if (!displayName.trim()) {
+        setError('Display name cannot be empty');
+        setLoading(false);
+        return;
+      }
+
+      // Update Firebase profile
+      await updateUserProfile(displayName.trim(), previewURL || undefined);
+      
+      // TODO: Save social media links to Firestore or database
+      // For now, they will be lost on page reload
       
       setSuccess('Profile updated successfully!');
       setEditMode(false);
