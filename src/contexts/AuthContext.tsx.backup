@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   type User,
   signInWithEmailAndPassword,
@@ -6,7 +6,6 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   sendEmailVerification,
-  sendPasswordResetEmail,
   type ActionCodeSettings,
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
@@ -19,7 +18,6 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
-  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -113,21 +111,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const resetPassword = async (email: string): Promise<void> => {
-    try {
-      // Action code settings - redirect to your app after password reset
-      const actionCodeSettings: ActionCodeSettings = {
-        url: 'https://planer.m-k-mendykhan.workers.dev/',
-        handleCodeInApp: false,
-      };
-
-      await sendPasswordResetEmail(auth, email, actionCodeSettings);
-    } catch (error: any) {
-      console.error('Reset password error:', error);
-      throw error;
-    }
-  };
-
   const getIdToken = async (): Promise<string | null> => {
     if (!user) return null;
     
@@ -152,9 +135,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signUp,
     signOut,
     sendVerificationEmail,
-    resetPassword,
     getIdToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
