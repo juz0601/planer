@@ -1,7 +1,10 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types';
 import { TaskService } from '../services/taskService';
-import type { CreateTaskDTO, UpdateTaskDTO, TaskFilters } from '../../src/types';
+import { TaskHistoryService } from '../services/taskHistoryService';
+import { RecurrenceService } from '../services/recurrenceService';
+import { TaskInstanceService } from '../services/taskInstanceService';
+import type { CreateTaskDTO, UpdateTaskDTO, TaskFilters, RecurrenceRule } from '../../src/types';
 
 const tasks = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -330,6 +333,356 @@ tasks.post('/:id/duplicate', async (c) => {
       {
         success: false,
         error: 'Failed to duplicate task',
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/tasks/:id/history
+ * Get task history
+ */
+tasks.get('/:id/history', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const taskId = c.req.param('id');
+  const historyService = new TaskHistoryService(c.env.DB);
+
+  try {
+    const history = await historyService.getTaskHistory(taskId, user.uid);
+    
+    return c.json({
+      success: true,
+      data: history,
+    });
+  } catch (error: any) {
+    console.error('Error fetching task history:', error);
+    
+    if (error.message === 'Task not found or no permission') {
+      return c.json(
+        {
+          success: false,
+          error: 'Task not found or no permission',
+        },
+        404
+      );
+    }
+    
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to fetch task history',
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/tasks/:id/recurrence
+ * Create recurrence rule for a task
+ */
+tasks.post('/:id/recurrence', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const taskId = c.req.param('id');
+  const taskService = new TaskService(c.env.DB);
+  const recurrenceService = new RecurrenceService(c.env.DB);
+
+  try {
+    // Check if user owns the task
+    const task = await taskService.getTaskById(taskId, user.uid);
+    if (!task || task.user_id !== user.uid) {
+      return c.json(
+        {
+          success: false,
+          error: 'Task not found or no permission',
+        },
+        404
+      );
+    }
+
+    const ruleData: Omit<RecurrenceRule, 'id' | 'created_at'> = await c.req.json();
+    const rule = await recurrenceService.createRule(taskId, ruleData);
+
+    return c.json(
+      {
+        success: true,
+        data: rule,
+        message: 'Recurrence rule created successfully',
+      },
+      201
+    );
+  } catch (error: any) {
+    console.error('Error creating recurrence rule:', error);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to create recurrence rule',
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/tasks/:id/recurrence
+ * Get recurrence rule for a task
+ */
+tasks.get('/:id/recurrence', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const taskId = c.req.param('id');
+  const taskService = new TaskService(c.env.DB);
+  const recurrenceService = new RecurrenceService(c.env.DB);
+
+  try {
+    // Check if user has access to the task
+    const task = await taskService.getTaskById(taskId, user.uid);
+    if (!task) {
+      return c.json(
+        {
+          success: false,
+          error: 'Task not found or no permission',
+        },
+        404
+      );
+    }
+
+    const rule = await recurrenceService.getRuleByTaskId(taskId);
+    
+    if (!rule) {
+      return c.json(
+        {
+          success: false,
+          error: 'Recurrence rule not found',
+        },
+        404
+      );
+    }
+
+    return c.json({
+      success: true,
+      data: rule,
+    });
+  } catch (error: any) {
+    console.error('Error fetching recurrence rule:', error);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to fetch recurrence rule',
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * PUT /api/tasks/:id/recurrence
+ * Update recurrence rule for a task
+ */
+tasks.put('/:id/recurrence', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const taskId = c.req.param('id');
+  const taskService = new TaskService(c.env.DB);
+  const recurrenceService = new RecurrenceService(c.env.DB);
+
+  try {
+    // Check if user owns the task
+    const task = await taskService.getTaskById(taskId, user.uid);
+    if (!task || task.user_id !== user.uid) {
+      return c.json(
+        {
+          success: false,
+          error: 'Task not found or no permission',
+        },
+        404
+      );
+    }
+
+    const rule = await recurrenceService.getRuleByTaskId(taskId);
+    if (!rule) {
+      return c.json(
+        {
+          success: false,
+          error: 'Recurrence rule not found',
+        },
+        404
+      );
+    }
+
+    const updates: Partial<Omit<RecurrenceRule, 'id' | 'created_at' | 'task_id'>> = await c.req.json();
+    const updatedRule = await recurrenceService.updateRule(rule.id, updates);
+
+    return c.json({
+      success: true,
+      data: updatedRule,
+      message: 'Recurrence rule updated successfully',
+    });
+  } catch (error: any) {
+    console.error('Error updating recurrence rule:', error);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update recurrence rule',
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/tasks/:id/recurrence
+ * Delete recurrence rule for a task
+ */
+tasks.delete('/:id/recurrence', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const taskId = c.req.param('id');
+  const taskService = new TaskService(c.env.DB);
+  const recurrenceService = new RecurrenceService(c.env.DB);
+
+  try {
+    // Check if user owns the task
+    const task = await taskService.getTaskById(taskId, user.uid);
+    if (!task || task.user_id !== user.uid) {
+      return c.json(
+        {
+          success: false,
+          error: 'Task not found or no permission',
+        },
+        404
+      );
+    }
+
+    const rule = await recurrenceService.getRuleByTaskId(taskId);
+    if (!rule) {
+      return c.json(
+        {
+          success: false,
+          error: 'Recurrence rule not found',
+        },
+        404
+      );
+    }
+
+    await recurrenceService.deleteRule(rule.id, taskId);
+
+    return c.json({
+      success: true,
+      message: 'Recurrence rule deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('Error deleting recurrence rule:', error);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to delete recurrence rule',
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/tasks/:id/instances/generate
+ * Generate instances for a recurring task
+ */
+tasks.post('/:id/instances/generate', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const taskId = c.req.param('id');
+  const instanceService = new TaskInstanceService(c.env.DB);
+
+  try {
+    const maxInstances = c.req.query('max') ? parseInt(c.req.query('max')!) : 30;
+    const daysAhead = c.req.query('days') ? parseInt(c.req.query('days')!) : 90;
+
+    const instances = await instanceService.generateInstances(taskId, user.uid, maxInstances, daysAhead);
+
+    return c.json({
+      success: true,
+      data: instances,
+      message: `Generated ${instances.length} instances`,
+    });
+  } catch (error: any) {
+    console.error('Error generating instances:', error);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to generate instances',
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/tasks/:id/instances
+ * Get all instances for a task
+ */
+tasks.get('/:id/instances', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const taskId = c.req.param('id');
+  const instanceService = new TaskInstanceService(c.env.DB);
+  const taskService = new TaskService(c.env.DB);
+
+  try {
+    // Check if user has access to the task
+    const task = await taskService.getTaskById(taskId, user.uid);
+    if (!task) {
+      return c.json(
+        {
+          success: false,
+          error: 'Task not found or no permission',
+        },
+        404
+      );
+    }
+
+    const instances = await instanceService.getInstances(taskId);
+
+    return c.json({
+      success: true,
+      data: instances,
+    });
+  } catch (error: any) {
+    console.error('Error fetching instances:', error);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to fetch instances',
         message: error.message,
       },
       500

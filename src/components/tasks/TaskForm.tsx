@@ -23,7 +23,8 @@ import { ru } from 'date-fns/locale';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { createTask, updateTask, getTaskById, getTags } from '../../utils/api';
-import type { CreateTaskDTO, UpdateTaskDTO, Tag, TaskPriority, TaskStatus } from '../../types';
+import type { CreateTaskDTO, UpdateTaskDTO, Tag, TaskPriority, TaskStatus, RecurrenceRule } from '../../types';
+import { RecurrenceRuleForm } from './RecurrenceRuleForm';
 
 export const TaskForm: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ export const TaskForm: React.FC = () => {
   const [status, setStatus] = useState<TaskStatus>('planned');
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState<Omit<RecurrenceRule, 'id' | 'created_at'> | null>(null);
 
   // Validation errors
   const [titleError, setTitleError] = useState('');
@@ -78,6 +80,7 @@ export const TaskForm: React.FC = () => {
       setStatus(task.status);
       setSelectedTags(task.tags || []);
       setIsRecurring(task.is_recurring);
+      // Note: Recurrence rule should be loaded separately if needed for editing
     } catch (err: any) {
       console.error('Error loading task:', err);
       setError('Не удалось загрузить задачу');
@@ -142,6 +145,7 @@ export const TaskForm: React.FC = () => {
           status,
           tag_ids: selectedTags.map(t => t.id),
           is_recurring: isRecurring,
+          recurrence_rule: isRecurring && recurrenceRule ? recurrenceRule : undefined,
         };
         
         await createTask(taskData);
@@ -303,9 +307,15 @@ export const TaskForm: React.FC = () => {
                 )}
 
                 {isRecurring && (
-                  <Alert severity="info">
-                    Настройка расписания повторений будет доступна после создания задачи
-                  </Alert>
+                  <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                      Настройка повторений
+                    </Typography>
+                    <RecurrenceRuleForm 
+                      value={recurrenceRule ? { ...recurrenceRule, id: '', created_at: '' } as RecurrenceRule : null}
+                      onChange={setRecurrenceRule} 
+                    />
+                  </Box>
                 )}
 
                 {/* Actions */}

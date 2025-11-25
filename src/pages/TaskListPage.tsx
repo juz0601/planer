@@ -10,6 +10,8 @@ import {
   TextField,
   MenuItem,
   InputAdornment,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -18,8 +20,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TaskCard } from '../components/tasks/TaskCard';
-import { getTasks, updateTask, deleteTask, archiveTask, duplicateTask } from '../utils/api';
-import type { Task, TaskFilters, TaskStatus, TaskPriority } from '../types';
+import { getTasks, updateTask, deleteTask, archiveTask, duplicateTask, getTags } from '../utils/api';
+import type { Task, TaskFilters, TaskStatus, TaskPriority, Tag } from '../types';
 
 export const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,6 +31,7 @@ export const TaskListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [filters, setFilters] = useState<TaskFilters>({
     date: dateParam || undefined,
     include_archived: false,
@@ -38,7 +41,17 @@ export const TaskListPage: React.FC = () => {
 
   useEffect(() => {
     loadTasks();
+    loadTags();
   }, [filters]);
+
+  const loadTags = async () => {
+    try {
+      const tags = await getTags();
+      setAvailableTags(tags);
+    } catch (err: any) {
+      console.error('Error loading tags:', err);
+    }
+  };
 
   const loadTasks = async () => {
     try {
@@ -128,6 +141,13 @@ export const TaskListPage: React.FC = () => {
     setFilters((prev) => ({
       ...prev,
       priority: value ? (value as TaskPriority) : undefined,
+    }));
+  };
+
+  const handleTagsFilterChange = (_: any, newValue: Tag[]) => {
+    setFilters((prev) => ({
+      ...prev,
+      tags: newValue.length > 0 ? newValue.map(t => t.id) : undefined,
     }));
   };
 
@@ -224,9 +244,33 @@ export const TaskListPage: React.FC = () => {
             <MenuItem value="high">Высокий</MenuItem>
             <MenuItem value="critical">Критический</MenuItem>
           </TextField>
+
+          <Autocomplete
+            multiple
+            options={availableTags}
+            getOptionLabel={(option) => option.name}
+            value={availableTags.filter(tag => filters.tags?.includes(tag.id))}
+            onChange={handleTagsFilterChange}
+            renderInput={(params) => (
+              <TextField {...params} label="Теги" size="small" sx={{ minWidth: 200 }} />
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  label={option.name}
+                  {...getTagProps({ index })}
+                  size="small"
+                  sx={{
+                    bgcolor: option.color,
+                    color: 'white',
+                  }}
+                />
+              ))
+            }
+          />
         </Stack>
 
-        {(filters.search || filters.status || filters.priority) && (
+        {(filters.search || filters.status || filters.priority || filters.tags) && (
           <Box>
             <Button size="small" onClick={clearFilters} startIcon={<FilterIcon />}>
               Сбросить фильтры

@@ -177,7 +177,7 @@ export const getAppVersions = async () => {
 // TASKS API
 // ============================================================
 
-import type { Task, CreateTaskDTO, UpdateTaskDTO, TaskFilters, ApiResponse } from '../types';
+import type { Task, CreateTaskDTO, UpdateTaskDTO, TaskFilters, ApiResponse, TaskHistory } from '../types';
 
 /**
  * Get all tasks with optional filters
@@ -302,6 +302,148 @@ export const duplicateTask = async (taskId: string): Promise<Task> => {
   const data: ApiResponse<Task> = await response.json();
   if (!data.data) throw new Error('Failed to duplicate task');
   return data.data;
+};
+
+/**
+ * Get task history
+ */
+export const getTaskHistory = async (taskId: string): Promise<TaskHistory[]> => {
+  const response = await authenticatedFetch(`/api/tasks/${taskId}/history`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch task history');
+  }
+  
+  const data: ApiResponse<TaskHistory[]> = await response.json();
+  return data.data || [];
+};
+
+// ============================================================
+// RECURRENCE API
+// ============================================================
+
+import type { RecurrenceRule } from '../types';
+
+/**
+ * Create recurrence rule for a task
+ */
+export const createRecurrenceRule = async (
+  taskId: string,
+  rule: Omit<RecurrenceRule, 'id' | 'created_at'>
+): Promise<RecurrenceRule> => {
+  const response = await authenticatedFetch(`/api/tasks/${taskId}/recurrence`, {
+    method: 'POST',
+    body: JSON.stringify(rule),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to create recurrence rule');
+  }
+  
+  const data: ApiResponse<RecurrenceRule> = await response.json();
+  if (!data.data) throw new Error('Failed to create recurrence rule');
+  return data.data;
+};
+
+/**
+ * Get recurrence rule for a task
+ */
+export const getRecurrenceRule = async (taskId: string): Promise<RecurrenceRule | null> => {
+  const response = await authenticatedFetch(`/api/tasks/${taskId}/recurrence`);
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null;
+    }
+    throw new Error('Failed to fetch recurrence rule');
+  }
+  
+  const data: ApiResponse<RecurrenceRule> = await response.json();
+  return data.data || null;
+};
+
+/**
+ * Update recurrence rule for a task
+ */
+export const updateRecurrenceRule = async (
+  taskId: string,
+  updates: Partial<Omit<RecurrenceRule, 'id' | 'created_at' | 'task_id'>>
+): Promise<RecurrenceRule> => {
+  const response = await authenticatedFetch(`/api/tasks/${taskId}/recurrence`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to update recurrence rule');
+  }
+  
+  const data: ApiResponse<RecurrenceRule> = await response.json();
+  if (!data.data) throw new Error('Failed to update recurrence rule');
+  return data.data;
+};
+
+/**
+ * Delete recurrence rule for a task
+ */
+export const deleteRecurrenceRule = async (taskId: string): Promise<void> => {
+  const response = await authenticatedFetch(`/api/tasks/${taskId}/recurrence`, {
+    method: 'DELETE',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to delete recurrence rule');
+  }
+};
+
+// ============================================================
+// TASK INSTANCES API
+// ============================================================
+
+import type { TaskInstance } from '../types';
+
+/**
+ * Generate instances for a recurring task
+ */
+export const generateTaskInstances = async (
+  taskId: string,
+  maxInstances?: number,
+  daysAhead?: number
+): Promise<TaskInstance[]> => {
+  const params = new URLSearchParams();
+  if (maxInstances) params.append('max', String(maxInstances));
+  if (daysAhead) params.append('days', String(daysAhead));
+  
+  const response = await authenticatedFetch(
+    `/api/tasks/${taskId}/instances/generate${params.toString() ? `?${params.toString()}` : ''}`,
+    {
+      method: 'POST',
+    }
+  );
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to generate instances');
+  }
+  
+  const data: ApiResponse<TaskInstance[]> = await response.json();
+  return data.data || [];
+};
+
+/**
+ * Get all instances for a task
+ */
+export const getTaskInstances = async (taskId: string): Promise<TaskInstance[]> => {
+  const response = await authenticatedFetch(`/api/tasks/${taskId}/instances`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch task instances');
+  }
+  
+  const data: ApiResponse<TaskInstance[]> = await response.json();
+  return data.data || [];
 };
 
 // ============================================================

@@ -9,18 +9,26 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  ToggleButton,
+  ToggleButtonGroup,
+  Stack,
 } from '@mui/material';
 import Grid from '@mui/material/GridLegacy';
-import { Add as AddIcon, CheckCircle, Schedule, Share } from '@mui/icons-material';
+import { Add as AddIcon, CheckCircle, Schedule, Share, Today, ViewWeek, CalendarMonth } from '@mui/icons-material';
 import { getTasks } from '../utils/api';
 import type { Task } from '../types';
 import { useNavigate } from 'react-router-dom';
+
+type ViewMode = 'today' | 'week' | 'month';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('today');
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+  const [weekTasks, setWeekTasks] = useState<Task[]>([]);
+  const [monthTasks, setMonthTasks] = useState<Task[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
   const [sharedTasks, setSharedTasks] = useState<Task[]>([]);
 
@@ -33,14 +41,37 @@ export const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
       
       // Load today's tasks
       const todayData = await getTasks({
-        date: today,
+        date: todayStr,
         include_archived: false,
       });
       setTodayTasks(todayData);
+
+      // Load week's tasks
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6); // Sunday
+      const weekData = await getTasks({
+        start_date: weekStart.toISOString().split('T')[0],
+        end_date: weekEnd.toISOString().split('T')[0],
+        include_archived: false,
+      });
+      setWeekTasks(weekData);
+
+      // Load month's tasks
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const monthData = await getTasks({
+        start_date: monthStart.toISOString().split('T')[0],
+        end_date: monthEnd.toISOString().split('T')[0],
+        include_archived: false,
+      });
+      setMonthTasks(monthData);
 
       // Load upcoming tasks (next 7 days)
       const nextWeek = new Date();
@@ -108,16 +139,142 @@ export const Dashboard: React.FC = () => {
     );
   }
 
+  const getTasksForView = (): Task[] => {
+    switch (viewMode) {
+      case 'today':
+        return todayTasks;
+      case 'week':
+        return weekTasks;
+      case 'month':
+        return monthTasks;
+      default:
+        return todayTasks;
+    }
+  };
+
+  const getViewTitle = (): string => {
+    switch (viewMode) {
+      case 'today':
+        return 'Задачи на сегодня';
+      case 'week':
+        return 'Задачи на неделю';
+      case 'month':
+        return 'Задачи на месяц';
+      default:
+        return 'Задачи';
+    }
+  };
+
+  const groupTasksByDate = (tasks: Task[]): Record<string, Task[]> => {
+    const groups: Record<string, Task[]> = {};
+    tasks.forEach((task) => {
+      const date = new Date(task.start_datetime).toLocaleDateString('ru-RU', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(task);
+    });
+    return groups;
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom fontWeight={600} sx={{ mb: 4 }}>
-        Главная
-      </Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Typography variant="h4" fontWeight={600}>
+          Главная
+        </Typography>
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(_, newMode) => {
+            if (newMode !== null) {
+              setViewMode(newMode);
+            }
+          }}
+          aria-label="view mode"
+        >
+          <ToggleButton value="today" aria-label="today">
+            <Today sx={{ mr: 1 }} />
+            Сегодня
+          </ToggleButton>
+          <ToggleButton value="week" aria-label="week">
+            <ViewWeek sx={{ mr: 1 }} />
+            Неделя
+          </ToggleButton>
+          <ToggleButton value="month" aria-label="month">
+            <CalendarMonth sx={{ mr: 1 }} />
+            Месяц
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
+      )}
+
+      {/* Tasks for selected view */}
+      {viewMode !== 'today' && (
+        <Card elevation={2} sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              {getViewTitle()}
+            </Typography>
+            {getTasksForView().length === 0 ? (
+              <Typography color="text.secondary">
+                Задач нет
+              </Typography>
+            ) : (
+              <Stack spacing={2} sx={{ mt: 2 }}>
+                {Object.entries(groupTasksByDate(getTasksForView())).map(([date, dateTasks]) => (
+                  <Box key={date}>
+                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                      {date}
+                    </Typography>
+                    <Stack spacing={1}>
+                      {dateTasks.map((task) => (
+                        <Box
+                          key={task.id}
+                          sx={{
+                            p: 1.5,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: 'action.hover' },
+                          }}
+                          onClick={() => navigate(`/tasks/${task.id}`)}
+                        >
+                          <Typography variant="body1" fontWeight={500}>
+                            {task.title}
+                          </Typography>
+                          <Box display="flex" gap={1} mt={0.5}>
+                            <Chip
+                              label={task.status}
+                              size="small"
+                              color={getStatusColor(task.status) as any}
+                            />
+                            <Chip
+                              label={task.priority}
+                              size="small"
+                              color={getPriorityColor(task.priority) as any}
+                            />
+                          </Box>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <Grid container spacing={3}>

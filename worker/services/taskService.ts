@@ -1,9 +1,20 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Task, CreateTaskDTO, UpdateTaskDTO, TaskFilters } from '../../src/types';
 import { nanoid } from 'nanoid';
+import { TaskHistoryService } from './taskHistoryService';
+import { RecurrenceService } from './recurrenceService';
+import { TaskInstanceService } from './taskInstanceService';
 
 export class TaskService {
-  constructor(private db: D1Database) {}
+  private historyService: TaskHistoryService;
+  private recurrenceService: RecurrenceService;
+  private instanceService: TaskInstanceService;
+
+  constructor(private db: D1Database) {
+    this.historyService = new TaskHistoryService(db);
+    this.recurrenceService = new RecurrenceService(db);
+    this.instanceService = new TaskInstanceService(db);
+  }
 
   /**
    * Get tasks for a user with optional filters
@@ -150,6 +161,19 @@ export class TaskService {
       await this.addTagsToTask(taskId, data.tag_ids);
     }
     
+    // Create recurrence rule if provided
+    if (data.is_recurring && data.recurrence_rule) {
+      await this.recurrenceService.createRule(taskId, data.recurrence_rule);
+      
+      // Generate initial instances for recurring task
+      try {
+        await this.instanceService.generateInstances(taskId, userId, 30, 90);
+      } catch (error) {
+        console.error('Error generating initial instances:', error);
+        // Don't fail task creation if instance generation fails
+      }
+    }
+    
     const task = await this.getTaskById(taskId, userId);
     return task!;
   }
@@ -168,46 +192,98 @@ export class TaskService {
       throw new Error('No permission to edit this task');
     }
     
+    // Get current task to log changes
+    const currentTask = await this.getTaskById(taskId, userId);
+    if (!currentTask) {
+      return null;
+    }
+    
     const updates: string[] = [];
     const params: any[] = [];
     
-    if (data.title !== undefined) {
+    // Track changes for history
+    const changes: Array<{ field: string; oldValue: string | null; newValue: string | null }> = [];
+    
+    if (data.title !== undefined && data.title !== currentTask.title) {
       updates.push('title = ?');
       params.push(data.title);
+      changes.push({
+        field: 'title',
+        oldValue: currentTask.title,
+        newValue: data.title,
+      });
     }
     
-    if (data.description !== undefined) {
+    if (data.description !== undefined && data.description !== currentTask.description) {
       updates.push('description = ?');
-      params.push(data.description);
+      params.push(data.description || null);
+      changes.push({
+        field: 'description',
+        oldValue: currentTask.description || null,
+        newValue: data.description || null,
+      });
     }
     
-    if (data.start_datetime !== undefined) {
+    if (data.start_datetime !== undefined && data.start_datetime !== currentTask.start_datetime) {
       updates.push('start_datetime = ?');
       params.push(data.start_datetime);
+      changes.push({
+        field: 'start_datetime',
+        oldValue: currentTask.start_datetime,
+        newValue: data.start_datetime,
+      });
     }
     
     if (data.deadline_datetime !== undefined) {
-      updates.push('deadline_datetime = ?');
-      params.push(data.deadline_datetime);
+      const newDeadline = data.deadline_datetime || null;
+      const oldDeadline = currentTask.deadline_datetime || null;
+      if (newDeadline !== oldDeadline) {
+        updates.push('deadline_datetime = ?');
+        params.push(newDeadline);
+        changes.push({
+          field: 'deadline_datetime',
+          oldValue: oldDeadline,
+          newValue: newDeadline,
+        });
+      }
     }
     
-    if (data.priority !== undefined) {
+    if (data.priority !== undefined && data.priority !== currentTask.priority) {
       updates.push('priority = ?');
       params.push(data.priority);
+      changes.push({
+        field: 'priority',
+        oldValue: currentTask.priority,
+        newValue: data.priority,
+      });
     }
     
-    if (data.status !== undefined) {
+    if (data.status !== undefined && data.status !== currentTask.status) {
       updates.push('status = ?');
       params.push(data.status);
+      changes.push({
+        field: 'status',
+        oldValue: currentTask.status,
+        newValue: data.status,
+      });
     }
     
     if (data.is_archived !== undefined) {
-      updates.push('is_archived = ?');
-      params.push(data.is_archived ? 1 : 0);
+      const newArchived = data.is_archived ? '1' : '0';
+      const oldArchived = currentTask.is_archived ? '1' : '0';
+      if (newArchived !== oldArchived) {
+        updates.push('is_archived = ?');
+        params.push(data.is_archived ? 1 : 0);
+        changes.push({
+          field: 'is_archived',
+          oldValue: oldArchived,
+          newValue: newArchived,
+        });
+      }
     }
     
     if (updates.length === 0) {
-      return this.getTaskById(taskId, userId);
+      return currentTask;
     }
     
     updates.push('updated_at = datetime("now")');
@@ -217,9 +293,33 @@ export class TaskService {
     
     await this.db.prepare(query).bind(...params).run();
     
+    // Log changes to history
+    for (const change of changes) {
+      await this.historyService.logChange(
+        taskId,
+        userId,
+        change.field,
+        change.oldValue,
+        change.newValue
+      );
+    }
+    
     // Update tags if provided
     if (data.tag_ids !== undefined) {
-      await this.updateTaskTags(taskId, data.tag_ids);
+      const currentTagIds = (currentTask.tags || []).map(t => t.id).sort().join(',');
+      const newTagIds = (data.tag_ids || []).sort().join(',');
+      
+      if (currentTagIds !== newTagIds) {
+        await this.updateTaskTags(taskId, data.tag_ids);
+        // Log tag change
+        await this.historyService.logChange(
+          taskId,
+          userId,
+          'tags',
+          currentTagIds || null,
+          newTagIds || null
+        );
+      }
     }
     
     return this.getTaskById(taskId, userId);

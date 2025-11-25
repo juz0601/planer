@@ -55,6 +55,7 @@ import { Profile } from './components/Profile';
 import { Calendar as CalendarView } from './components/Calendar';
 import { Dashboard } from './pages/Dashboard';
 import { TaskListPage } from './pages/TaskListPage';
+import { TaskDetail } from './pages/TaskDetail';
 import { TaskForm } from './components/tasks/TaskForm';
 
 function AppRouter() {
@@ -411,7 +412,7 @@ function AppRouter() {
               <Route path="/tasks" element={<TaskListPage />} />
               <Route path="/tasks/new" element={<TaskForm />} />
               <Route path="/tasks/:id/edit" element={<TaskForm />} />
-              <Route path="/tasks/:id" element={<div>Task Detail (TODO)</div>} />
+              <Route path="/tasks/:id" element={<TaskDetail />} />
               <Route path="/tags" element={<div>Tags Page (TODO)</div>} />
               <Route path="/friends" element={<div>Friends Page (TODO)</div>} />
               <Route path="/shared" element={<div>Shared Tasks (TODO)</div>} />
