@@ -199,29 +199,38 @@ export const getTasks = async (filters?: TaskFilters): Promise<Task[]> => {
   
   const endpoint = `/api/tasks${params.toString() ? `?${params.toString()}` : ''}`;
   
+  let response: Response;
   try {
-    const response = await authenticatedFetch(endpoint);
-    
-    if (!response.ok) {
-      let errorMessage = 'Failed to fetch tasks';
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch {
-        // If response is not JSON, use status text
-        errorMessage = response.statusText || errorMessage;
-      }
-      throw new Error(errorMessage);
+    response = await authenticatedFetch(endpoint);
+  } catch (error: any) {
+    // If authenticatedFetch throws (e.g., auth error), re-throw it
+    console.error('Error in authenticatedFetch:', error);
+    throw error;
+  }
+  
+  if (!response.ok) {
+    let errorMessage = 'Failed to fetch tasks';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+      console.error('API error response:', errorData);
+    } catch (parseError) {
+      // If response is not JSON, use status text
+      errorMessage = `${response.status} ${response.statusText || 'Unknown error'}`;
+      console.error('Failed to parse error response:', parseError);
     }
-    
+    throw new Error(errorMessage);
+  }
+  
+  try {
     const data: ApiResponse<Task[]> = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || data.message || 'Failed to fetch tasks');
+    }
     return data.data || [];
   } catch (error: any) {
-    // Re-throw with more context if it's not already an Error
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error(`Failed to fetch tasks: ${error?.message || 'Unknown error'}`);
+    console.error('Error parsing response:', error);
+    throw new Error(`Failed to parse tasks response: ${error?.message || 'Unknown error'}`);
   }
 };
 

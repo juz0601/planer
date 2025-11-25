@@ -101,10 +101,38 @@ export class TaskService {
       const result = await this.db.prepare(query).bind(...params).all();
       
       if (!result.success) {
+        console.error('Database query failed:', result.error, query, params);
         throw new Error(`Database query failed: ${result.error || 'Unknown error'}`);
       }
       
-      return (result.results as any[]).map(row => this.mapRowToTask(row));
+      if (!result.results) {
+        return [];
+      }
+      
+      return (result.results as any[]).map(row => {
+        try {
+          return this.mapRowToTask(row);
+        } catch (error: any) {
+          console.error('Error mapping task row:', error, row);
+          // Return a minimal task object if mapping fails
+          return {
+            id: row.id,
+            user_id: row.user_id,
+            title: row.title || 'Untitled',
+            description: row.description,
+            start_datetime: row.start_datetime,
+            deadline_datetime: row.deadline_datetime,
+            priority: row.priority || 'medium',
+            status: row.status || 'planned',
+            is_recurring: Boolean(row.is_recurring),
+            recurrence_rule_id: row.recurrence_rule_id,
+            is_archived: Boolean(row.is_archived),
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            tags: [],
+          } as Task;
+        }
+      });
     } catch (error: any) {
       console.error('Error in getTasks:', error);
       throw new Error(`Failed to fetch tasks: ${error.message || 'Unknown error'}`);
@@ -459,17 +487,25 @@ export class TaskService {
     };
     
     // Map tags if available
-    if (row.tag_ids) {
-      const ids = row.tag_ids.split(',');
-      const names = row.tag_names.split(',');
-      const colors = row.tag_colors.split(',');
-      
-      task.tags = ids.map((id: string, index: number) => ({
-        id,
-        name: names[index],
-        color: colors[index],
-        user_id: row.user_id,
-      }));
+    if (row.tag_ids && row.tag_names && row.tag_colors) {
+      try {
+        const ids = row.tag_ids.split(',').filter((id: string) => id && id.trim());
+        const names = row.tag_names.split(',').filter((name: string) => name && name.trim());
+        const colors = row.tag_colors.split(',').filter((color: string) => color && color.trim());
+        
+        if (ids.length > 0 && ids.length === names.length && ids.length === colors.length) {
+          task.tags = ids.map((id: string, index: number) => ({
+            id: id.trim(),
+            name: names[index]?.trim() || '',
+            color: colors[index]?.trim() || '#000000',
+            user_id: row.user_id,
+          }));
+        }
+      } catch (error) {
+        console.error('Error parsing tags:', error, row);
+        // If tag parsing fails, just skip tags
+        task.tags = [];
+      }
     }
     
     // Map shared task metadata
