@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "planer",
 	"main": "worker/index.ts",
-	"compatibility_date": "2025-10-24",
+	"compatibility_date": "2025-11-25",
 	"assets": {
 		"not_found_handling": "single-page-application"
 	},
@@ -20,13 +20,15 @@
 		{
 			"binding": "DB",
 			"database_name": "planer-db",
-			"database_id": "e19445cf-9a86-4044-bed0-48eab886707c"
+			"database_id": "e19445cf-9a86-4044-bed0-48eab886707c",
+			"remote": true
 		}
 	],
 	"kv_namespaces": [
 		{
 			"binding": "PUBLIC_JWK_CACHE_KV",
-			"id": "61defe75abba4af8be28044afc9e6830"
+			"id": "61defe75abba4af8be28044afc9e6830",
+			"remote": true
 		}
 	]
 
