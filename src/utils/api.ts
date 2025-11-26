@@ -7,7 +7,7 @@ import { auth } from '../config/firebase';
 /**
  * Safely stringify an object, handling circular references
  */
-const safeStringify = (obj: any, maxDepth: number = 3, currentDepth: number = 0): string => {
+const safeStringify = (obj: any, maxDepth: number = 3, currentDepth: number = 0, visited: WeakSet<object> = new WeakSet()): string => {
   if (currentDepth >= maxDepth) {
     return '[Max Depth Reached]';
   }
@@ -20,24 +20,38 @@ const safeStringify = (obj: any, maxDepth: number = 3, currentDepth: number = 0)
     return String(obj);
   }
   
-  if (Array.isArray(obj)) {
-    if (obj.length === 0) return '[]';
-    const items = obj.slice(0, 5).map(item => safeStringify(item, maxDepth, currentDepth + 1));
-    return `[${items.join(', ')}${obj.length > 5 ? ', ...' : ''}]`;
+  // Check for circular references
+  if (visited.has(obj)) {
+    return '[Circular Reference]';
   }
   
+  // Add to visited set
+  visited.add(obj);
+  
   try {
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) {
+        visited.delete(obj);
+        return '[]';
+      }
+      const items = obj.slice(0, 5).map(item => safeStringify(item, maxDepth, currentDepth + 1, visited));
+      visited.delete(obj);
+      return `[${items.join(', ')}${obj.length > 5 ? ', ...' : ''}]`;
+    }
+    
     const keys = Object.keys(obj).slice(0, 10);
     const pairs = keys.map(key => {
       try {
-        const value = safeStringify(obj[key], maxDepth, currentDepth + 1);
+        const value = safeStringify(obj[key], maxDepth, currentDepth + 1, visited);
         return `${key}: ${value}`;
       } catch {
         return `${key}: [Error serializing]`;
       }
     });
+    visited.delete(obj);
     return `{${pairs.join(', ')}${Object.keys(obj).length > 10 ? ', ...' : ''}}`;
-  } catch {
+  } catch (error) {
+    visited.delete(obj);
     return '[Object]';
   }
 };
@@ -57,16 +71,39 @@ const safeLog = (label: string, obj: any): void => {
       return;
     }
     
-    // Try JSON.stringify first (it handles most cases)
+    // Try JSON.stringify first with a replacer to handle circular refs
     try {
-      const str = JSON.stringify(obj, null, 2);
-      console.error(label, JSON.parse(str));
+      const seen = new WeakSet();
+      const str = JSON.stringify(obj, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return '[Circular]';
+          }
+          seen.add(value);
+        }
+        return value;
+      }, 2);
+      
+      if (str && str.length < 1000) {
+        // Only parse if string is not too long
+        try {
+          console.error(label, JSON.parse(str));
+        } catch {
+          console.error(label, str);
+        }
+      } else {
+        // If too long, just log the string representation
+        console.error(label, str ? str.substring(0, 500) + '...' : '[Too large to display]');
+      }
     } catch {
-      // If JSON.stringify fails, use safe stringify
-      console.error(label, safeStringify(obj));
+      // If JSON.stringify fails, use safe stringify (but limit output)
+      const str = safeStringify(obj, 2);
+      console.error(label, str.length > 500 ? str.substring(0, 500) + '...' : str);
     }
   } catch (error) {
-    console.error(label, '[Error logging object]', error instanceof Error ? error.message : String(error));
+    // Last resort - just log the error message
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(label, '[Error logging object]', errorMsg);
   }
 };
 
@@ -291,7 +328,15 @@ export const getTasks = async (filters?: TaskFilters): Promise<Task[]> => {
       if (responseText) {
         try {
           errorData = JSON.parse(responseText);
-          errorMessage = errorData.message || errorData.error || errorMessage;
+          // Safely extract error message
+          if (errorData && typeof errorData === 'object') {
+            const msg = errorData.message || errorData.error;
+            if (msg && typeof msg === 'string') {
+              errorMessage = msg.length > 200 ? msg.substring(0, 200) : msg;
+            } else {
+              errorMessage = 'Internal Server Error';
+            }
+          }
         } catch {
           // If not JSON, use text as error message (but limit length to avoid recursion)
           errorMessage = responseText.length > 200 ? responseText.substring(0, 200) + '...' : responseText;
@@ -301,16 +346,40 @@ export const getTasks = async (filters?: TaskFilters): Promise<Task[]> => {
       }
       
       // Safe logging to avoid stack overflow from circular references
-      safeLog('API error response:', errorData);
-      console.error('Status:', response.status);
+      // Only log if errorData is not null and is an object
+      if (errorData !== null && typeof errorData === 'object') {
+        try {
+          safeLog('API error response:', errorData);
+        } catch {
+          // If safeLog fails, just log status
+          console.error('API error - Status:', response.status);
+        }
+      } else {
+        console.error('API error - Status:', response.status, 'Message:', errorMessage);
+      }
     } catch (parseError) {
-      errorMessage = `${response.status} ${response.statusText || 'Unknown error'}`;
-      const parseErrorMsg = parseError instanceof Error ? parseError.message : String(parseError);
-      console.error('Failed to parse error response:', parseErrorMsg);
+      // If everything fails, use simple error message
+      errorMessage = `Server error (${response.status})`;
+      try {
+        const parseErrorMsg = parseError instanceof Error ? parseError.message : String(parseError);
+        console.error('Failed to parse error response:', parseErrorMsg);
+      } catch {
+        console.error('Failed to parse error response');
+      }
     }
     
-    // Create simple error without complex message to avoid recursion
-    const error = new Error(String(errorMessage));
+    // Create simple error with guaranteed simple string message
+    // Ensure errorMessage is always a simple string
+    let finalErrorMessage: string;
+    try {
+      finalErrorMessage = typeof errorMessage === 'string' 
+        ? errorMessage.substring(0, 500) 
+        : 'Failed to fetch tasks';
+    } catch {
+      finalErrorMessage = 'Failed to fetch tasks';
+    }
+    
+    const error = new Error(finalErrorMessage);
     error.name = 'APIError';
     throw error;
   }
@@ -321,21 +390,60 @@ export const getTasks = async (filters?: TaskFilters): Promise<Task[]> => {
       throw new Error('Empty response from server');
     }
     
-    const data: ApiResponse<Task[]> = JSON.parse(responseText);
-    if (!data.success) {
-      const errorMsg = data.error || data.message || 'Failed to fetch tasks';
-      throw new Error(String(errorMsg));
+    let data: ApiResponse<Task[]>;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      const parseErrorMsg = parseError instanceof Error ? parseError.message : String(parseError);
+      throw new Error(`Failed to parse JSON response: ${parseErrorMsg.substring(0, 100)}`);
     }
-    return data.data || [];
+    
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid response format');
+    }
+    
+    if (!data.success) {
+      // Safely extract error message
+      let errorMsg = 'Failed to fetch tasks';
+      if (data.error && typeof data.error === 'string') {
+        errorMsg = data.error.substring(0, 200);
+      } else if (data.message && typeof data.message === 'string') {
+        errorMsg = data.message.substring(0, 200);
+      }
+      throw new Error(errorMsg);
+    }
+    
+    // Safely return data, ensuring it's an array
+    if (Array.isArray(data.data)) {
+      return data.data;
+    } else if (data.data === null || data.data === undefined) {
+      return [];
+    } else {
+      // If data is not an array, log warning and return empty array
+      console.warn('API returned non-array data, returning empty array');
+      return [];
+    }
   } catch (error: any) {
     // If it's already our APIError, re-throw it
     if (error.name === 'APIError') {
       throw error;
     }
-    console.error('Error parsing response:', error);
+    
+    // Safe error logging
+    let errorMsg = 'Unknown error';
+    try {
+      errorMsg = error?.message || String(error) || 'Unknown error';
+      if (errorMsg.length > 200) {
+        errorMsg = errorMsg.substring(0, 200);
+      }
+    } catch {
+      errorMsg = 'Failed to parse response';
+    }
+    
+    console.error('Error parsing response:', errorMsg);
+    
     // Create simple error message
-    const errorMsg = error?.message || 'Unknown error';
-    const parseError = new Error(`Failed to parse tasks response: ${String(errorMsg).substring(0, 100)}`);
+    const parseError = new Error(`Failed to parse tasks response: ${errorMsg}`);
     parseError.name = 'ParseError';
     throw parseError;
   }
