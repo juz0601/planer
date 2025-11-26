@@ -54,7 +54,10 @@ export class TaskService {
       if (filters.date) {
         // Ensure date is in YYYY-MM-DD format
         const dateStr = filters.date.split('T')[0]; // Remove time if present
-        query += ` AND DATE(t.start_datetime) = ?`;
+        // Use date() function for SQLite compatibility
+        // D1 uses SQLite, so date() function should work
+        // Compare both sides as dates to handle datetime strings properly
+        query += ` AND date(t.start_datetime) = date(?)`;
         params.push(dateStr);
       }
       
@@ -103,11 +106,27 @@ export class TaskService {
         }
       }
       
-      const result = await this.db.prepare(query).bind(...params).all();
+      let result;
+      try {
+        result = await this.db.prepare(query).bind(...params).all();
+      } catch (dbError: any) {
+        // Safe error logging
+        const errorMsg = dbError?.message || String(dbError) || 'Database query execution failed';
+        console.error('Database query execution error:', errorMsg);
+        console.error('Query:', query.substring(0, 200));
+        throw new Error(`Database query execution failed: ${errorMsg}`);
+      }
+      
+      if (!result) {
+        console.error('Database query returned null/undefined result');
+        return [];
+      }
       
       if (!result.success) {
-        console.error('Database query failed:', result.error, query, params);
-        throw new Error(`Database query failed: ${result.error || 'Unknown error'}`);
+        const errorMsg = result.error || 'Unknown database error';
+        console.error('Database query failed:', errorMsg);
+        console.error('Query:', query.substring(0, 200));
+        throw new Error(`Database query failed: ${errorMsg}`);
       }
       
       if (!result.results) {
@@ -115,28 +134,81 @@ export class TaskService {
       }
       
       // Convert D1 results to plain objects to avoid serialization issues
-      const plainRows = (result.results as any[]).map(row => {
-        // Extract all properties explicitly to avoid proxy/getter issues
-        const plainRow: any = {};
-        for (const key in row) {
-          if (Object.prototype.hasOwnProperty.call(row, key)) {
-            const value = row[key];
-            // Convert to primitive if possible to avoid circular references
-            if (value === null || value === undefined) {
-              plainRow[key] = value;
-            } else if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-              // For objects, try to stringify and parse to get plain object
+      // Use a safe conversion that avoids circular references
+      const visited = new WeakSet();
+      const safeConvert = (value: any, depth: number = 0): any => {
+        // Prevent infinite recursion
+        if (depth > 10) {
+          return '[Max Depth]';
+        }
+        
+        if (value === null || value === undefined) {
+          return value;
+        }
+        
+        // Handle primitives
+        if (typeof value !== 'object') {
+          return value;
+        }
+        
+        // Handle Date
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        
+        // Handle arrays
+        if (Array.isArray(value)) {
+          return value.map(item => safeConvert(item, depth + 1));
+        }
+        
+        // Handle objects - check for circular references
+        if (visited.has(value)) {
+          return '[Circular Reference]';
+        }
+        
+        try {
+          visited.add(value);
+          const plain: any = {};
+          for (const key in value) {
+            if (Object.prototype.hasOwnProperty.call(value, key)) {
               try {
-                plainRow[key] = JSON.parse(JSON.stringify(value));
+                plain[key] = safeConvert(value[key], depth + 1);
               } catch {
-                plainRow[key] = String(value);
+                plain[key] = '[Conversion Error]';
               }
-            } else {
-              plainRow[key] = value;
             }
           }
+          visited.delete(value);
+          return plain;
+        } catch {
+          return String(value);
         }
-        return plainRow;
+      };
+      
+      const plainRows = (result.results as any[]).map(row => {
+        try {
+          return safeConvert(row);
+        } catch (error) {
+          // If conversion fails, create minimal safe object
+          const safeRow: any = {};
+          try {
+            if (row && typeof row === 'object') {
+              for (const key of ['id', 'user_id', 'title', 'description', 'start_datetime', 'deadline_datetime', 'priority', 'status', 'is_recurring', 'recurrence_rule_id', 'is_archived', 'created_at', 'updated_at', 'tag_ids', 'tag_names', 'tag_colors']) {
+                try {
+                  if (key in row) {
+                    const val = row[key];
+                    safeRow[key] = val === null || val === undefined ? val : String(val);
+                  }
+                } catch {
+                  // Skip this key if access fails
+                }
+              }
+            }
+          } catch {
+            // If all else fails, return empty object
+          }
+          return safeRow;
+        }
       });
       
       return plainRows.map(row => {
@@ -573,38 +645,55 @@ export class TaskService {
     };
     
     // Map tags if available
+    // GROUP_CONCAT can return NULL if no tags, so we need to handle that
     const tagIds = safeGet(row, 'tag_ids');
     const tagNames = safeGet(row, 'tag_names');
     const tagColors = safeGet(row, 'tag_colors');
     
-    if (tagIds && tagNames && tagColors) {
+    // Check if we have tag data (not null/undefined/empty)
+    if (tagIds != null && tagNames != null && tagColors != null) {
       try {
-        const idsStr = String(tagIds);
-        const namesStr = String(tagNames);
-        const colorsStr = String(tagColors);
+        const idsStr = String(tagIds).trim();
+        const namesStr = String(tagNames).trim();
+        const colorsStr = String(tagColors).trim();
         
+        // Only process if all strings are non-empty
         if (idsStr && namesStr && colorsStr) {
           const ids = idsStr.split(',').filter((id: string) => id && id.trim());
           const names = namesStr.split(',').filter((name: string) => name && name.trim());
           const colors = colorsStr.split(',').filter((color: string) => color && color.trim());
           
+          // Ensure arrays have same length and are not empty
           if (ids.length > 0 && ids.length === names.length && ids.length === colors.length) {
-            task.tags = ids.map((id: string, index: number) => ({
-              id: id.trim(),
-              name: names[index]?.trim() || '',
-              color: colors[index]?.trim() || '#000000',
-              user_id: String(safeGet(row, 'user_id', '')),
-            }));
+            task.tags = ids.map((id: string, index: number) => {
+              try {
+                return {
+                  id: id.trim(),
+                  name: names[index]?.trim() || '',
+                  color: colors[index]?.trim() || '#000000',
+                  user_id: String(safeGet(row, 'user_id', '')),
+                };
+              } catch {
+                // Skip this tag if mapping fails
+                return null;
+              }
+            }).filter((tag): tag is NonNullable<typeof tag> => tag !== null);
+          } else {
+            task.tags = [];
           }
+        } else {
+          task.tags = [];
         }
       } catch (error) {
         // Safe error logging to avoid recursion
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error('Error parsing tags:', errorMsg, 'Row ID:', safeGet(row, 'id'));
+        const rowId = safeGet(row, 'id', 'unknown');
+        console.error('Error parsing tags:', errorMsg, 'Row ID:', rowId);
         // If tag parsing fails, just skip tags
         task.tags = [];
       }
     } else {
+      // No tags for this task
       task.tags = [];
     }
     

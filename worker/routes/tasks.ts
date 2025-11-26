@@ -43,11 +43,16 @@ tasks.get('/', async (c) => {
   };
 
   try {
+    console.log('Fetching tasks for user:', user.uid, 'with filters:', JSON.stringify(filters));
+    
     const tasksList = await taskService.getTasks(user.uid, filters);
+    
+    console.log('Retrieved tasks count:', tasksList.length);
     
     // Ensure we return plain objects to avoid serialization issues
     // Use a safe serialization approach to prevent recursion
-    const plainTasks = tasksList.map(task => {
+    const plainTasks = tasksList.map((task, index) => {
+      try {
       const plainTask: any = {
         id: String(task.id || ''),
         user_id: String(task.user_id || ''),
@@ -89,7 +94,15 @@ tasks.get('/', async (c) => {
       }
       
       return plainTask;
-    });
+      } catch (taskError: any) {
+        const errorMsg = taskError?.message || String(taskError) || 'Unknown task mapping error';
+        console.error(`Error mapping task at index ${index}:`, errorMsg);
+        // Return null and filter it out
+        return null;
+      }
+    }).filter((task): task is NonNullable<typeof task> => task !== null);
+    
+    console.log('Successfully mapped tasks count:', plainTasks.length);
     
     return c.json({
       success: true,
