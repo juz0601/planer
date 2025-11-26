@@ -2,15 +2,12 @@ import type { D1Database } from '@cloudflare/workers-types';
 import type { TaskInstance } from '../../src/types';
 import { nanoid } from 'nanoid';
 import { RecurrenceService } from './recurrenceService';
-import { TaskService } from './taskService';
 
 export class TaskInstanceService {
   private recurrenceService: RecurrenceService;
-  private taskService: TaskService;
 
   constructor(private db: D1Database) {
     this.recurrenceService = new RecurrenceService(db);
-    this.taskService = new TaskService(db);
   }
 
   /**
@@ -23,8 +20,17 @@ export class TaskInstanceService {
     maxInstances: number = 30,
     daysAhead: number = 90
   ): Promise<TaskInstance[]> {
-    // Get the parent task
-    const parentTask = await this.taskService.getTaskById(taskId, userId);
+    // Get the parent task using direct DB query to avoid circular dependency
+    const parentTaskResult = await this.db
+      .prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?')
+      .bind(taskId, userId)
+      .first();
+    
+    if (!parentTaskResult) {
+      throw new Error('Task not found');
+    }
+    
+    const parentTask = parentTaskResult as any;
     if (!parentTask || !parentTask.is_recurring || !parentTask.recurrence_rule_id) {
       throw new Error('Task is not recurring or rule not found');
     }

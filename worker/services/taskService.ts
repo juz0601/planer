@@ -3,17 +3,14 @@ import type { Task, CreateTaskDTO, UpdateTaskDTO, TaskFilters, SharePermission, 
 import { nanoid } from 'nanoid';
 import { TaskHistoryService } from './taskHistoryService';
 import { RecurrenceService } from './recurrenceService';
-import { TaskInstanceService } from './taskInstanceService';
 
 export class TaskService {
   private historyService: TaskHistoryService;
   private recurrenceService: RecurrenceService;
-  private instanceService: TaskInstanceService;
 
   constructor(private db: D1Database) {
     this.historyService = new TaskHistoryService(db);
     this.recurrenceService = new RecurrenceService(db);
-    this.instanceService = new TaskInstanceService(db);
   }
 
   /**
@@ -380,8 +377,11 @@ export class TaskService {
       await this.recurrenceService.createRule(taskId, data.recurrence_rule);
       
       // Generate initial instances for recurring task
+      // Note: We create TaskInstanceService on-demand to avoid circular dependency
       try {
-        await this.instanceService.generateInstances(taskId, userId, 30, 90);
+        const { TaskInstanceService } = await import('./taskInstanceService');
+        const instanceService = new TaskInstanceService(this.db);
+        await instanceService.generateInstances(taskId, userId, 30, 90);
       } catch (error) {
         console.error('Error generating initial instances:', error);
         // Don't fail task creation if instance generation fails
