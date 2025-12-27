@@ -25,8 +25,9 @@ import type { Task, TaskFilters, TaskStatus, TaskPriority, Tag } from '../types'
 
 export const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
+  const tagsParam = searchParams.get('tags');
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export const TaskListPage: React.FC = () => {
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [filters, setFilters] = useState<TaskFilters>({
     date: dateParam || undefined,
+    tags: tagsParam ? [tagsParam] : undefined,
     include_archived: false,
     sort_by: 'start_datetime',
     sort_order: 'asc',

@@ -45,6 +45,7 @@ import {
   People as PeopleIcon,
   Share as ShareIcon,
   Task as TaskIcon,
+  Archive as ArchiveIcon,
 } from '@mui/icons-material';
 import './App.css';
 import { useAuth } from './contexts/AuthContext';
@@ -57,6 +58,8 @@ import { Dashboard } from './pages/Dashboard';
 import { TaskListPage } from './pages/TaskListPage';
 import { TaskDetail } from './pages/TaskDetail';
 import { TaskForm } from './components/tasks/TaskForm';
+import { TagsPage } from './pages/TagsPage';
+import { ArchivePage } from './pages/ArchivePage';
 
 function AppRouter() {
   const { user, loading: authLoading, signOut, sendVerificationEmail, getIdToken } = useAuth();
@@ -355,6 +358,14 @@ function AppRouter() {
                   </ListItemButton>
                 </ListItem>
                 <ListItem disablePadding>
+                  <ListItemButton component="a" href="/archive">
+                    <ListItemIcon>
+                      <ArchiveIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Архив" />
+                  </ListItemButton>
+                </ListItem>
+                <ListItem disablePadding>
                   <ListItemButton component="a" href="/friends">
                     <ListItemIcon>
                       <PeopleIcon />
@@ -413,7 +424,8 @@ function AppRouter() {
               <Route path="/tasks/new" element={<TaskForm />} />
               <Route path="/tasks/:id/edit" element={<TaskForm />} />
               <Route path="/tasks/:id" element={<TaskDetail />} />
-              <Route path="/tags" element={<div>Tags Page (TODO)</div>} />
+              <Route path="/tags" element={<TagsPage />} />
+              <Route path="/archive" element={<ArchivePage />} />
               <Route path="/friends" element={<div>Friends Page (TODO)</div>} />
               <Route path="/shared" element={<div>Shared Tasks (TODO)</div>} />
               <Route path="*" element={<Navigate to="/" replace />} />

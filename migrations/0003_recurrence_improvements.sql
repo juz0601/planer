@@ -5,3 +5,4 @@ ALTER TABLE recurrence_rules ADD COLUMN week_of_month INTEGER; -- 1-5 for "first
 ALTER TABLE recurrence_rules ADD COLUMN day_of_week_for_month INTEGER; -- 0-6 for day of week when using week_of_month
 ALTER TABLE recurrence_rules ADD COLUMN custom_unit TEXT CHECK(custom_unit IN ('hours', 'days', 'weeks', 'months')); -- Unit for custom recurrence
 
+

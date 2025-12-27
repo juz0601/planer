@@ -14,7 +14,7 @@
 		"enabled": true
 	},
 	"vars": {
-		"My_NAME": "Malik"
+		"My_NAME": "Malik-dev"
 	},
 	"d1_databases": [
 		{
@@ -30,7 +30,27 @@
 			"id": "61defe75abba4af8be28044afc9e6830",
 			"remote": true
 		}
-	]
+	],
+	"env": {
+		"dev": {
+"name": "planer-dev",
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "planer-db",
+					"database_id": "e19445cf-9a86-4044-bed0-48eab886707c",
+					"remote": true
+				}
+			],
+			"kv_namespaces": [
+				{
+					"binding": "PUBLIC_JWK_CACHE_KV",
+					"id": "61defe75abba4af8be28044afc9e6830",
+					"remote": true
+				}
+			]
+		}
+	}
 
 	// "placement": { "mode": "smart" }
 	/**

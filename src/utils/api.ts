@@ -532,6 +532,25 @@ export const archiveTask = async (taskId: string): Promise<void> => {
 };
 
 /**
+ * Restore a task from archive
+ */
+export const restoreTask = async (taskId: string): Promise<Task> => {
+  const response = await authenticatedFetch(`/api/tasks/${taskId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_archived: false }),
+  });
+  
+  const data: ApiResponse<Task> = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.message || data.error || 'Failed to restore task');
+  }
+  
+  if (!data.data) throw new Error('Failed to restore task');
+  return data.data;
+};
+
+/**
  * Duplicate a task
  */
 export const duplicateTask = async (taskId: string): Promise<Task> => {
