@@ -6,3 +6,4 @@ ALTER TABLE recurrence_rules ADD COLUMN day_of_week_for_month INTEGER; -- 0-6 fo
 ALTER TABLE recurrence_rules ADD COLUMN custom_unit TEXT CHECK(custom_unit IN ('hours', 'days', 'weeks', 'months')); -- Unit for custom recurrence
 
 
+
